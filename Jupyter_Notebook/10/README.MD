@@ -59,3 +59,6 @@ This document outlines a custom ResNet architecture designed specifically for th
 - It is crucial to monitor the training process for signs of overfitting and adjust the dropout rate or augmentation strategies as necessary.
 
 
+## Analysis 
+Architecture:
+blob:https://carbon.now.sh/639836e8-fdd4-48f1-aa26-a5d77212a540
