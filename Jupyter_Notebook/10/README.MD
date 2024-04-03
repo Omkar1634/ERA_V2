@@ -60,9 +60,12 @@ This document outlines a custom ResNet architecture designed specifically for th
 
 
 ## Analysis 
-The Architecture as follows: 
+The Architecture: 
 
 ![alt text](image-2.png)
+
+Data Augmentation:
+![alt text](image-3.png)
 ### 1. One Cycle Policy
 There are two Models like `trial_model` and `model`. Out of which `trial_model` is used to find the learning rates (LRMIN and LRMAX).
 By using the learning Rate Finder we have find the LRMAX = 1.26E-01
