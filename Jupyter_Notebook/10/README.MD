@@ -61,4 +61,4 @@ This document outlines a custom ResNet architecture designed specifically for th
 
 ## Analysis 
 Architecture:
-blob:https://carbon.now.sh/639836e8-fdd4-48f1-aa26-a5d77212a540
+C:\Users\Aai\Downloads\carbon (1).png
