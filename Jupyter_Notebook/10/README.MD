@@ -60,5 +60,29 @@ This document outlines a custom ResNet architecture designed specifically for th
 
 
 ## Analysis 
-Architecture:
+The Architecture as follows: 
 
+![alt text](image-2.png)
+### 1. One Cycle Policy
+There are two Models like `trial_model` and `model`. Out of which `trial_model` is used to find the learning rates (LRMIN and LRMAX).
+By using the learning Rate Finder we have find the LRMAX = 1.26E-01
+By using the learning Rate Finder we have find the LRMIN = 0.0126
+
+1. **trial_model**
+`criterion = nn.CrossEntropyLoss()`
+`optimizer = optim.Adam(trial_model.parameters(), lr=0.1, weight_decay=1e-2)`
+`lr_finder = LRFinder(trial_model, optimizer, criterion, device="cuda")`
+`lr_finder.range_test(trainloader, val_loader=testloader, end_lr=1, num_iter=100, step_mode="exp")`
+`lr_finder.plot(log_lr=False)`
+`lr_finder.reset()`
+
+![alt text](image.png)
+
+2. **Model**
+`model =  Custom_Resnet().to(device) `
+`trainer = Trainer(model,device,trainloader,testloader,lr_max=1.26E-01,lr_min=0.0126,epochs=24,max_at_epoch=5)`
+`trainer.run()`
+**Achieve Accuracy** : 
+A. Train : 80%
+B. Test : 85%
+![alt text](image-1.png)
