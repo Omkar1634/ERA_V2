@@ -61,3 +61,4 @@ This document outlines a custom ResNet architecture designed specifically for th
 
 ## Analysis 
 Architecture:
+
