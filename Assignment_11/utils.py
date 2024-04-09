@@ -7,6 +7,8 @@ import albumentations as A
 from albumentations.pytorch import ToTensorV2
 from PIL import Image
 import numpy as np
+import matplotlib.pyplot as plt
+
 
 
 
@@ -26,18 +28,33 @@ def get_mean_and_std(dataset):
 
 
 
+classes = ('plane', 'car', 'bird', 'cat', 'deer','dog', 'frog', 'horse', 'ship', 'truck')
 
-
-train_transforms = transforms.Compose([
-    transforms.RandomCrop(32,padding=4),
-    A.CoarseDropout(max_holes = 16,max_height=16,max_width=16,min_holes = 16,min_height=16,min_width=16,fill_value=(0.49139968,0.48215841,0.44653091), mask_fill_value = None),
-    A.Normalize(mean=(0.49139968,0.48215841,0.44653091), std=(0.24703223,0.24348513,0.26158784)),
+train_transforms = A.Compose([
+    A.PadIfNeeded(min_height=40, min_width=40, border_mode=4, value=None, mask_value=None),
+    A.RandomCrop(height=32, width=32, always_apply=True),
+    A.CoarseDropout(max_holes=16, max_height=16, max_width=16, min_holes=16, min_height=16, min_width=16, fill_value=(0.49139968, 0.48215841, 0.44653091), mask_fill_value=None),
+    A.Normalize(mean=(0.49139968, 0.48215841, 0.44653091), std=(0.24703223, 0.24348513, 0.26158784)),
     ToTensorV2()
-                            ])
+])
+
+test_transforms = A.Compose([
+    A.Normalize(mean=(0.49139968, 0.48215841, 0.44653091), std=(0.24703223, 0.24348513, 0.26158784)),
+    ToTensorV2()
+])
 
 
-test_transforms = A.Compose([ A.Normalize(mean=(0.49139968,0.48215841,0.44653091), std=(0.24703223,0.24348513,0.26158784)),
-                            ToTensorV2()
-                                    ])
-
+def plot_misclassified_images(images, true_labels, predicted_labels, classes):
+    fig, axes = plt.subplots((len(images) + 1) // 2, 2, figsize=(10, 20))
+    for i, ax in enumerate(axes.flat):
+        if i < len(images):
+            img = images[i].numpy().transpose((1, 2, 0))
+            img = (img - img.min()) / (img.max() - img.min())  # Normalize to [0,1]
+            ax.imshow(img)
+            ax.set_title(f"True: {classes[true_labels[i].item()]}, Pred: {classes[predicted_labels[i].item()]}")
+            ax.axis('off')
+        else:
+            ax.axis('off')
+    plt.tight_layout()
+    plt.show()
 
