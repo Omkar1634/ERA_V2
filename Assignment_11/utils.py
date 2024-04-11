@@ -44,12 +44,15 @@ test_transforms = A.Compose([
 ])
 
 
-def plot_misclassified_images(images, true_labels, predicted_labels, classes):
+def plot_misclassified_images_optimized(images, true_labels, predicted_labels, classes, max_images=20):
+    images = images[:max_images]
+    true_labels = true_labels[:max_images]
+    predicted_labels = predicted_labels[:max_images]
+    
     fig, axes = plt.subplots((len(images) + 1) // 2, 2, figsize=(10, 20))
     for i, ax in enumerate(axes.flat):
         if i < len(images):
-            img = images[i].numpy().transpose((1, 2, 0))
-            img = (img - img.min()) / (img.max() - img.min())  # Normalize to [0,1]
+            img = np.clip(images[i], 0, 1)  # Assuming images were normalized beforehand
             ax.imshow(img)
             ax.set_title(f"True: {classes[true_labels[i].item()]}, Pred: {classes[predicted_labels[i].item()]}")
             ax.axis('off')
