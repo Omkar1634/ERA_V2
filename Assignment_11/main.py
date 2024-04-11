@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 from torchvision import transforms, datasets
 
-from utils import plot_misclassified_images
+from utils import plot_misclassified_images_optimized
 
 
 
