@@ -44,8 +44,9 @@ test_transforms = A.Compose([
 ])
 
 
-def plot_misclassified_images_optimized(images, true_labels, predicted_labels, classes, max_images=20):
-    images = images[:max_images]
+def plot_misclassified_images_optimized(images, true_labels, predicted_labels, classes, max_images=10):
+    # Ensure images are in the correct shape and range for plotting
+    images = [img.transpose((1, 2, 0)) for img in images[:max_images]]
     true_labels = true_labels[:max_images]
     predicted_labels = predicted_labels[:max_images]
     
