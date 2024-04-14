@@ -28,32 +28,59 @@ def get_mean_and_std(dataset):
 
 
 
-classes = ('plane', 'car', 'bird', 'cat', 'deer','dog', 'frog', 'horse', 'ship', 'truck')
+class AlbumentationsTransform:
+    def __init__(self, transform):
+        self.transform = transform
 
-train_transforms = A.Compose([
-    A.PadIfNeeded(min_height=40, min_width=40, border_mode=4, value=None, mask_value=None),
-    A.RandomCrop(height=32, width=32, always_apply=True),
-    A.CoarseDropout(max_holes=16, max_height=16, max_width=16, min_holes=16, min_height=16, min_width=16, fill_value=(0.49139968, 0.48215841, 0.44653091), mask_fill_value=None),
-    A.Normalize(mean=(0.49139968, 0.48215841, 0.44653091), std=(0.24703223, 0.24348513, 0.26158784)),
-    ToTensorV2()
-])
-
-test_transforms = A.Compose([
-    A.Normalize(mean=(0.49139968, 0.48215841, 0.44653091), std=(0.24703223, 0.24348513, 0.26158784)),
-    ToTensorV2()
-])
-
-
-def plot_misclassified_images_optimized(images, true_labels, predicted_labels, classes, max_images=10):
-    # Ensure images are in the correct shape and range for plotting
-    images = [img.transpose((1, 2, 0)) for img in images[:max_images]]
-    true_labels = true_labels[:max_images]
-    predicted_labels = predicted_labels[:max_images]
+    def __call__(self, img):
+        img = np.array(img)
+        return self.transform(image=img)['image']
     
-    fig, axes = plt.subplots((len(images) + 1) // 2, 2, figsize=(10, 20))
+
+train_transforms = AlbumentationsTransform(A.Compose([
+    A.RandomCrop(height=32, width=32, p=0.2,always_apply=True),
+    A.CoarseDropout(max_holes=1, max_height=16, max_width=16, min_holes=1, min_height=1, min_width=1, fill_value=[0.49139968*255, 0.48215827*255 ,0.44653124*255], mask_fill_value=None),
+    A.Normalize(mean=(0.49139968, 0.48215841, 0.44653091), std=(0.24703223, 0.24348513, 0.26158784)),
+    ToTensorV2()
+]))
+
+test_transforms = AlbumentationsTransform(A.Compose([
+    A.Normalize(mean=(0.49139968, 0.48215841, 0.44653091), std=(0.24703223, 0.24348513, 0.26158784)),
+    ToTensorV2()
+]))
+
+
+def find_and_visualize_misclassified_images(model, device, test_loader, criterion, classes, num_images=10):
+    model.eval()  # Set the model to evaluation mode
+    misclassified_images = []
+    misclassified_true = []
+    misclassified_pred = []
+
+    with torch.no_grad():
+        for data, target in test_loader:
+            data, target = data.to(device), target.to(device)
+            output = model(data)
+            _, preds = torch.max(output, 1)
+            misclassified_idxs = (preds != target).nonzero(as_tuple=False).squeeze()
+
+            for idx in misclassified_idxs:
+                if len(misclassified_images) < num_images:
+                    misclassified_images.append(data[idx].cpu())
+                    misclassified_true.append(target[idx].cpu())
+                    misclassified_pred.append(preds[idx].cpu())
+                else:
+                    plot_misclassified_images(misclassified_images, misclassified_true, misclassified_pred, classes)
+                    return
+    if misclassified_images:
+        plot_misclassified_images(misclassified_images, misclassified_true, misclassified_pred, classes)
+import matplotlib.pyplot as plt
+
+def plot_misclassified_images(images, true_labels, predicted_labels, classes):
+    fig, axes = plt.subplots((len(images) + 1) // 2, 2, figsize=(8,8))
     for i, ax in enumerate(axes.flat):
         if i < len(images):
-            img = np.clip(images[i], 0, 1)  # Assuming images were normalized beforehand
+            img = images[i].numpy().transpose((1, 2, 0))
+            img = (img - img.min()) / (img.max() - img.min())  # Normalize to [0,1]
             ax.imshow(img)
             ax.set_title(f"True: {classes[true_labels[i].item()]}, Pred: {classes[predicted_labels[i].item()]}")
             ax.axis('off')

@@ -5,34 +5,27 @@ import torch.optim as optim
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from torchvision import transforms, datasets
-
-from utils import plot_misclassified_images_optimized
-
+import numpy as np
 
 
-class CIFAR10Dataset(datasets.CIFAR10):
+class AlbumentationsTransform:
+    def __init__(self, transform):
+        self.transform = transform
 
- def __init__(self,root="./data",train=True,download=True,transform=None):
-   super().__init__(root=root,train=train,download=download,transform=transform)
-
- def __getitem__(self,index):
-   image, label = self.data[index], self.targets[index]
-
-   if self.transform is not None:
-     transformed = self.transform(image=image)
-     image = transformed["image"]
-   return image,label
+    def __call__(self, img):
+        img = np.array(img)
+        return self.transform(image=img)['image']
 
 
 
 class S_11:
-    def __init__(self, model,classes, train_transforms, test_transforms, epochs = 20, optimizer_type='adam',scheduler_type = "step", use_scheduler=True):
+    def __init__(self, model,classes, train_transforms, test_transforms,learning_rate, epochs = 20, optimizer_type='sgd',scheduler_type = "step", use_scheduler=True):
         self.model = model
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.train_transforms =train_transforms
         self.test_transforms = test_transforms
         self.classes = classes
-        #self.lr_max = lr_max
+        self.learning_rate = learning_rate
         self.epochs = epochs
         #self.max_at_epoch = max_at_epoch
         self.train_losses = []
@@ -42,16 +35,12 @@ class S_11:
         self.misclassified_images = []
         self.misclassified_true_labels = []
         self.misclassified_pred_labels = []
-        #self.optimizer =  optim.Adam(model.parameters(), lr=lr_max)
-        # self.scheduler =   optim.lr_scheduler.OneCycleLR(self.optimizer, max_lr=lr_max,
-                                                       #epochs=epochs, steps_per_epoch=len(train_loader),
-                                                       #div_factor=lr_max/lr_min, final_div_factor=lr_max/lr_min,
-                                                       #pct_start=max_at_epoch/epochs)
+        
         # Initialize optimizer based on user input
         if optimizer_type.lower() == 'adam':
             self.optimizer = torch.optim.Adam(self.model.parameters())
         elif optimizer_type.lower() == 'sgd':
-            self.optimizer = torch.optim.SGD(self.model.parameters(), lr=0.01, momentum=0.9)
+            self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.learning_rate, momentum=0.9,WEIGHT_DECAY = 1e-4)
         else:
             raise ValueError(f"Unsupported optimizer: {optimizer_type}")
 
@@ -84,11 +73,11 @@ class S_11:
         dataloader_args = dict(shuffle=True, batch_size=512, num_workers=2, pin_memory=True) if torch.cuda.is_available() else dict(shuffle=True, batch_size=64)
 
         # train dataloader
-        train = CIFAR10Dataset(root="./data",download=True,transform = self.train_transforms)
+        train = datasets.CIFAR10(root="./data",download=True,transform = self.train_transforms)
         train_loader = torch.utils.data.DataLoader(train, **dataloader_args) 
 
         # test dataloader
-        test = CIFAR10Dataset(root="./data",download=True,train=False,transform = self.test_transforms)
+        test = datasets.CIFAR10(root="./data",download=True,train=False,transform = self.test_transforms)
         test_loader = torch.utils.data.DataLoader(test, **dataloader_args)
 
         return train_loader,test_loader
@@ -132,12 +121,6 @@ class S_11:
                 test_loss += F.cross_entropy(output, target, reduction='sum').item()
                 correct += self.get_correct_pred_count(output, target)
 
-                # Collect misclassified images
-                predicted_labels = output.argmax(dim=1)
-                misclassified_mask = predicted_labels != target
-                self.misclassified_images.extend(data[misclassified_mask].cpu().numpy())
-                self.misclassified_true_labels.extend(target[misclassified_mask].cpu().numpy())
-                self.misclassified_pred_labels.extend(predicted_labels[misclassified_mask].cpu().numpy())
                 
 
         test_loss /= len(test_loader.dataset)
@@ -157,17 +140,16 @@ class S_11:
         axs[1, 1].plot(self.test_acc)
         axs[1, 1].set_title("Test Accuracy")
         plt.show()
- 
+        
+
     def run(self):
         train_loader, test_loader = self.split_data() # Get train_loader and test_loader
-        #misclassified_images, misclassified_true, misclassified_pred = self.test()  # Get misclassified_images, misclassified_true, misclassified_pred
         print("==> Satrting Training & Testing")
         for epoch in range(1, self.epochs + 1):
             print(f'Epoch {epoch}/{self.epochs}')
             self.train(train_loader)  # Pass train_loader to train method
             self.test(test_loader)    # Pass test_loader to test method
         self.plot_acc_loss()
-        #plot_misclassified_images(self.misclassified_images, self.misclassified_true_labels, self.misclassified_pred_labels, self.classes)
         
 
 
