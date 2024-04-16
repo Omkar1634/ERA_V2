@@ -1,3 +1,4 @@
+import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -21,9 +22,10 @@ class MisclassificationVisualizer:
         self.device = device
         self.test_loader = test_loader
         self.classes = classes
+        self.misclassified_data = []  # Add this line to store misclassified data
 
     def find_and_visualize_misclassified_images(self, num_images=10):
-        self.model.eval()  # Set the model to evaluation mode
+        self.model.eval()
         misclassified_images = []
         misclassified_true = []
         misclassified_pred = []
@@ -42,9 +44,14 @@ class MisclassificationVisualizer:
                         misclassified_pred.append(preds[idx].cpu())
                     else:
                         self.plot_misclassified_images(misclassified_images, misclassified_true, misclassified_pred)
+                        self.misclassified_data = list(zip(misclassified_images, misclassified_true, misclassified_pred))
                         return
         if misclassified_images:
             self.plot_misclassified_images(misclassified_images, misclassified_true, misclassified_pred)
+            self.misclassified_data = list(zip(misclassified_images, misclassified_true, misclassified_pred))
+
+
+    
 
     def plot_misclassified_images(self, images, true_labels, predicted_labels):
         fig, axes = plt.subplots((len(images) + 1) // 2, 2, figsize=(8, 8))
@@ -60,71 +67,37 @@ class MisclassificationVisualizer:
         plt.tight_layout()
         plt.show()
 
+    def display_gradcam_output(self, target_layers, number_of_samples=10, transparency=0.60):
+    # Ensure your model and data are on the correct device (self.device)
+        self.model.to(self.device)
+        
+        cam = GradCAM(model=self.model, target_layers=target_layers)
 
+        for i, (img_tensor, true_label, pred_label) in enumerate(self.misclassified_data[:number_of_samples]):
+            # Ensure input_tensor is on the correct device
+            input_tensor = img_tensor.unsqueeze(0).to(self.device)
+            target_category = pred_label.item()
 
-
-
-class GradCamVisualizer:
-    def __init__(self, model, device, test_loader, classes):
-        self.model = model.to(device)
-        self.device = device
-        self.test_loader = test_loader
-        self.classes = classes
-        self.model.eval()
-
-    def find_misclassified_images(self, num_images=10):
-        misclassified_images = []
-        misclassified_preds = []
-        misclassified_true = []
-        with torch.no_grad():
-            for data, target in self.test_loader:
-                data, target = data.to(self.device), target.to(self.device)
-                output = self.model(data)
-                _, preds = torch.max(output, 1)
-                misclassified_idxs = (preds != target).nonzero(as_tuple=False).squeeze()
-                for idx in misclassified_idxs:
-                    if len(misclassified_images) < num_images:
-                        misclassified_images.append(data[idx])
-                        misclassified_true.append(target[idx])
-                        misclassified_preds.append(preds[idx])
-                    else:
-                        return misclassified_images, misclassified_preds, misclassified_true
-        return misclassified_images, misclassified_preds, misclassified_true
-
-    def apply_gradcam(self, misclassified_images, misclassified_preds, target_layer):
-        # Adjusting this line according to the new API
-        cam = GradCAM(model=self.model, target_layers=[target_layer])
-        for i, (img_tensor, pred) in enumerate(zip(misclassified_images, misclassified_preds)):
-            input_tensor = img_tensor.unsqueeze(0)
-            # Create an object for the target category based on the predicted class
-            targets = [ClassifierOutputTarget(pred.item())]
-            
-            # Generate the CAM mask for the target category
+            # Generate the Grad-CAM mask
+            targets = [ClassifierOutputTarget(target_category)]
             grayscale_cam = cam(input_tensor=input_tensor, targets=targets)
+            grayscale_cam = grayscale_cam[0, :]  # Remove batch dimension if present
 
-            # Visualize
-            img = np.array(to_pil_image(img_tensor))
-            grayscale_cam_uint8 = np.uint8(255 * grayscale_cam)
-
-            # Now use this for visualization
-            cam_img = show_cam_on_image(img / 255., grayscale_cam_uint8, use_rgb=True)
+            # Prepare image for visualization
+            img = img_tensor.cpu().numpy()
+            img = np.moveaxis(img, 0, -1)  # Convert from CHW to HWC format
+            img = (img - img.min()) / (img.max() - img.min())  # Normalize to [0, 1]
             
-            plt.figure(figsize=(12, 6))
-            plt.subplot(1, 2, 1)
-            plt.imshow(img)
-            plt.title(f"Image {i+1}")
-            plt.axis('off')
+            cam_image = show_cam_on_image(img, grayscale_cam, use_rgb=True, image_weight=transparency)
 
-            plt.subplot(1, 2, 2)
-            plt.imshow(cam_img)
-            plt.title(f"Grad-CAM {i+1}")
+            plt.figure(figsize=(10, 5))
+            plt.imshow(cam_image)
+            plt.title(f"True: {self.classes[true_label.item()]}, Pred: {self.classes[pred_label.item()]}")
             plt.axis('off')
-
             plt.show()
 
-    def visualize(self, target_layer, num_images=10):
-        misclassified_images, misclassified_preds, misclassified_true = self.find_misclassified_images(num_images)
-        self.apply_gradcam(misclassified_images, misclassified_preds, target_layer)
+
+
 
 
 

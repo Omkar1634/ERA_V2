@@ -191,10 +191,14 @@ class S_11:
             print(f'Epoch {epoch}/{self.epochs}')
             self.train(train_loader)
             self.test(test_loader)
-        
+        print('Finished Training. Saving the model...')
+        self.save_model('trained_model.pth')
+        print("Model saved!!")
         self.plot_acc_loss()
         
-
+    def save_model(self, file_path='model.pth'):
+        torch.save(self.model.state_dict(), file_path)
+        print(f'Model saved to {file_path}')
 
 
 
